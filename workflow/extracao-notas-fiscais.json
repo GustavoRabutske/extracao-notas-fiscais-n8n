@@ -1,0 +1,251 @@
+{
+  "name": "Extração de Notas Fiscais",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Envio de Nota Fiscal",
+        "formDescription": "Envie o PDF da nota fiscal recebida",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Nota Fiscal (PDF)",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Empresa do Grupo",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Empresa A"
+                  },
+                  {
+                    "option": "Empresa B"
+                  },
+                  {
+                    "option": "Empresa C"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "278f9ce2-c744-49c8-b4fb-1d9ffb72d41c",
+      "name": "Recebe Nota Fiscal"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Nota_Fiscal__PDF_",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        64
+      ],
+      "id": "3b08e3a1-01ec-41e6-9508-a1004cc9d67e",
+      "name": "Extrai Texto do PDF",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-haiku-4-5-20251001",
+          "mode": "list",
+          "cachedResultName": "claude-haiku-4-5-20251001"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Você recebe o texto extraído de uma nota fiscal. Extraia e devolva APENAS um JSON válido, sem nenhum texto antes ou depois, sem blocos de código, com estes campos:\n{\"numero_nota\": \"\", \"valor\": \"\", \"vencimento\": \"\", \"centro_de_custo\": \"\", \"fornecedor\": \"\", \"empresa_destinataria\": \"\", \"cnpj_fornecedor\": \"\", \"cnpj_destinatario\": \"\"}\n\nRegras de formato:\n- \"numero_nota\": apenas o número identificador da nota, sem prefixos como \"NF\" ou \"Nº\". Preserve o número como impresso, inclusive zeros à esquerda.\n- \"valor\": valor total da nota, apenas números, ponto como separador decimal, sem símbolo de moeda e sem separador de milhar. Exemplo: 1234.56\n- \"vencimento\": data de vencimento no formato AAAA-MM-DD. Se houver apenas data de emissão, retorne null em vencimento. Se houver mais de uma parcela, retorne a data da primeira.\n- \"centro_de_custo\": o texto do centro de custo, departamento ou área responsável, como aparece no documento. Só preencha se o documento trouxer explicitamente esse rótulo; não infira a partir de pedido de compra, contrato, projeto ou descrição de produto.\n\nIdentificação das empresas — o documento envolve DUAS empresas distintas, não as confunda:\n- \"fornecedor\": razão social de QUEM EMITIU a nota e vai receber o pagamento. Aparece sob rótulos como EMITENTE, PRESTADOR, DADOS DO PRESTADOR, ou na frase \"RECEBEMOS DE ...\".\n- \"empresa_destinataria\": razão social de QUEM RECEBEU a nota e vai pagar. Aparece sob rótulos como DESTINATÁRIO, DESTINATÁRIO/REMETENTE, TOMADOR, TOMADOR DE SERVIÇOS, CLIENTE, SACADO.\n- Para reconhecer uma razão social, use como pista os sufixos empresariais (LTDA, S.A., S/A, EIRELI, ME, EPP, MEI) e a posição do nome imediatamente antes de um endereço ou junto a um CNPJ.\n- Preserve a razão social exatamente como está escrita, incluindo o sufixo. Não abrevie nem converta para nome fantasia.\n- NÃO confunda com: transportadora, banco, escritório de contabilidade ou qualquer empresa citada apenas nos dados bancários, no transporte ou nas informações complementares.\n- Se o documento trouxer apenas uma empresa identificável, coloque-a em \"fornecedor\" e retorne null em \"empresa_destinataria\".\n- \"cnpj_fornecedor\" e \"cnpj_destinatario\": o CNPJ de cada uma, apenas dígitos, sem pontos, barras ou hífens.\n\n- Se um campo não existir no texto, use o valor nulo JSON (null), nunca a string \"null\" nem string vazia.\n\nTexto da nota:\n{{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        368,
+        -128
+      ],
+      "id": "6939fba3-de62-449a-8294-3f1828df0a30",
+      "name": "IA Extrai Dados Estruturados",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "17456ece-87ae-45aa-9fb9-6d04a31b54c9",
+              "name": "etapa",
+              "value": "Extração do PDF",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        432,
+        192
+      ],
+      "id": "3bcda1a6-d5cb-45a7-8e5e-f9c34bda259f",
+      "name": "Marca Falha - Extração PDF"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "df9e6470-a901-4c4e-a531-4b47a8398560",
+              "name": "etapa",
+              "value": "Chamada à IA",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        624,
+        80
+      ],
+      "id": "3f0c49aa-faf8-4c22-a01f-a4d445a9f046",
+      "name": "Marca Falha - Chamada IA"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Empresa do grupo vem do formulário, não da IA\nlet empresa = null;\ntry {\n  const j = $('Recebe Nota Fiscal').first().json;\n  empresa = j['Empresa do Grupo'] ?? j['Empresa_do_Grupo'] ?? null;\n} catch (e) {\n  empresa = null;\n}\n\n// 2. Acesso protegido à resposta da IA\nconst raw = $input.item?.json?.content?.[0]?.text;\n\nif (!raw) {\n  return {\n    json: {\n      erro: true,\n      revisao_parcial: false,\n      empresa,\n      mensagem: \"Resposta da IA em formato inesperado. Requer revisão manual.\",\n      texto_bruto: JSON.stringify($input.item?.json ?? {})\n    }\n  };\n}\n\n// 3. Limpeza de formatação acidental\nlet cleaned = raw.replace(/```json\\n?/g, '').replace(/```/g, '').trim();\nconst match = cleaned.match(/\\{[\\s\\S]*\\}/);\nif (match) cleaned = match[0];\n\nlet data;\ntry {\n  data = JSON.parse(cleaned);\n} catch (error) {\n  return {\n    json: {\n      erro: true,\n      revisao_parcial: false,\n      empresa,\n      mensagem: \"Não foi possível extrair os dados da nota automaticamente. Requer revisão manual.\",\n      texto_bruto: raw\n    }\n  };\n}\n\n// 4. Normaliza \"null\" em string e vazios para null de verdade\nconst limpar = (v) => {\n  if (v === null || v === undefined) return null;\n  const s = String(v).trim();\n  if (s === '' || s.toLowerCase() === 'null') return null;\n  return s;\n};\n\nconst soDigitos = (v) => {\n  const s = limpar(v);\n  if (s === null) return null;\n  const d = s.replace(/\\D/g, '');\n  return d === '' ? null : d;\n};\n\n// 5. Campos obrigatórios para o lançamento\nconst campos = {\n  numero_nota: limpar(data.numero_nota),\n  valor: limpar(data.valor),\n  vencimento: limpar(data.vencimento),\n  centro_de_custo: limpar(data.centro_de_custo)\n};\n\nconst camposFaltando = Object.keys(campos).filter(c => campos[c] === null);\n\n// 6. Identificação das partes: informativa, não bloqueia o lançamento\nconst partes = {\n  fornecedor: limpar(data.fornecedor),\n  cnpj_fornecedor: soDigitos(data.cnpj_fornecedor),\n  empresa_destinataria: limpar(data.empresa_destinataria),\n  cnpj_destinatario: soDigitos(data.cnpj_destinatario)\n};\n\n// 7. Nenhum campo identificado: provavelmente não é uma nota fiscal\nif (camposFaltando.length === 4) {\n  return {\n    json: {\n      erro: true,\n      revisao_parcial: false,\n      empresa,\n      mensagem: \"Nenhum dado de nota fiscal foi identificado no documento. Verifique se o arquivo enviado é realmente uma nota fiscal.\",\n      texto_bruto: raw\n    }\n  };\n}\n\n// 8. Extração parcial: a nota segue para lançamento, marcada para conferência\nconst parcial = camposFaltando.length > 0;\n\nreturn {\n  json: {\n    erro: false,\n    revisao_parcial: parcial,\n    campos_faltando: camposFaltando,\n    mensagem: parcial\n      ? `Extração parcial. Campos não identificados: ${camposFaltando.join(', ')}. Lançar com status \"Conferência pendente\".`\n      : null,\n    empresa,\n    ...campos,\n    ...partes\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        -144
+      ],
+      "id": "8a227a38-966f-438e-bbdc-45fdc3d1d6c9",
+      "name": "Valida Dados da Nota e Organiza Saída"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nlet empresa = null;\ntry {\n  const j = $('Recebe Nota Fiscal').first().json;\n  empresa = j['Empresa do Grupo'] ?? j['Empresa_do_Grupo'] ?? null;\n} catch (e) {\n  empresa = null;\n}\n\nlet mensagemErro = \"Falha técnica não especificada\";\nif (typeof item.error === 'string') {\n  mensagemErro = item.error;\n} else if (item.error?.message) {\n  mensagemErro = item.error.message;\n} else if (item.message) {\n  mensagemErro = item.message;\n}\n\nconst etapa = item.etapa || \"desconhecida\";\n\nconst acoes = {\n  \"Extração do PDF\": \"Arquivo possivelmente corrompido, protegido por senha ou digitalizado como imagem. Solicitar reenvio ao fornecedor.\",\n  \"Chamada à IA\": \"Indisponibilidade da API ou credencial vencida. Não reenviar a nota — acionar o responsável técnico.\"\n};\n\nreturn {\n  json: {\n    erro: true,\n    revisao_parcial: false,\n    empresa,\n    etapa,\n    mensagem: `Falha técnica na etapa: ${etapa}. Detalhe: ${mensagemErro}`,\n    acao_recomendada: acoes[etapa] || \"Acionar o responsável técnico.\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        224
+      ],
+      "id": "69be40af-68c2-405c-a035-dc98340759f6",
+      "name": "Formata Falha de Infraestrutura"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recebe Nota Fiscal": {
+      "main": [
+        [
+          {
+            "node": "Extrai Texto do PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrai Texto do PDF": {
+      "main": [
+        [
+          {
+            "node": "IA Extrai Dados Estruturados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marca Falha - Extração PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA Extrai Dados Estruturados": {
+      "main": [
+        [
+          {
+            "node": "Valida Dados da Nota e Organiza Saída",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marca Falha - Chamada IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marca Falha - Extração PDF": {
+      "main": [
+        [
+          {
+            "node": "Formata Falha de Infraestrutura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marca Falha - Chamada IA": {
+      "main": [
+        [
+          {
+            "node": "Formata Falha de Infraestrutura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formata Falha de Infraestrutura": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "tags": []
+}
